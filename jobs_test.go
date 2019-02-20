@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"github.com/azbshiri/common/test"
 	"github.com/go-pg/pg"
 	"github.com/go-pg/pg/orm"
@@ -26,7 +27,7 @@ func TestMain(m *testing.M) {
 	)
 	badServer = newServer(
 		pg.Connect(&pg.Options{
-			User:     "noone",
+			User:     "simonbad",
 			Password: "simon",
 			Database: "pgsimon",
 		}),
@@ -41,6 +42,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+//-----Test List Jobs-----//
 func TestListJobs_emptyResponse(t *testing.T) {
 	var body []job
 	res, err := test.DoRequest(testServer, "GET", JobPath, nil)
@@ -60,6 +62,7 @@ func TestListJobs_NormalResponse(t *testing.T) {
 	assert.Equal(t, http.StatusOK, res.Code)
 	assert.NoError(t, err)
 
+	ffjson.NewDecoder().DecodeReader(res.Body, &body)
 	assert.Len(t, body, 10)
 	assert.Equal(t, jobs, &body)
 }
@@ -67,6 +70,46 @@ func TestListJobs_NormalResponse(t *testing.T) {
 func TestListJobs_DatabaseError(t *testing.T) {
 	var body Error
 	res, err := test.DoRequest(badServer, "GET", JobPath, nil)
+
+	ffjson.NewDecoder().DecodeReader(res.Body, &body)
+	assert.NoError(t, err)
+	assert.Equal(t, DatabaseError, &body)
+	assert.Equal(t, http.StatusInternalServerError, res.Code)
+}
+
+//-----Test Create Jobs-----//
+
+func TestCreateJob(t *testing.T) {
+	var body job
+	byt, err := ffjson.Marshal(&job{Name: "Developper"})
+	rdr := bytes.NewReader(byt)
+
+	res, err := test.DoRequest(testServer, "POST", JobPath, rdr)
+
+	ffjson.NewDecoder().DecodeReader(res.Body, &body)
+	assert.NoError(t, err)
+	assert.Equal(t, "Developper", body.Name)
+	assert.Equal(t, http.StatusOK, res.Code)
+}
+
+func TestCreateJob_BadParamError(t *testing.T) {
+	var body Error
+	res, err := test.DoRequest(testServer, "POST", JobPath, bytes.NewReader([]byte{}))
+
+	ffjson.NewDecoder().DecodeReader(res.Body, &body)
+	assert.NoError(t, err)
+	assert.Equal(t, BadParramError, &body)
+	assert.Equal(t, http.StatusBadRequest, res.Code)
+}
+
+func TestCreateJob_DatabaseError(t *testing.T) {
+	var body Error
+	byt, err := ffjson.Marshal(&job{Name: "bad developper"})
+	rdr := bytes.NewReader(byt)
+
+	res, err := test.DoRequest(badServer, "POST", JobPath, rdr)
+
+	ffjson.NewDecoder().DecodeReader(res.Body, &body)
 	assert.NoError(t, err)
 	assert.Equal(t, DatabaseError, &body)
 	assert.Equal(t, http.StatusInternalServerError, res.Code)

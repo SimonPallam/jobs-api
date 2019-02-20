@@ -12,3 +12,4 @@ func Err(message string, status int) *Error {
 }
 
 var DatabaseError = Err("Request failled : Database Error", http.StatusInternalServerError)
+var BadParramError = Err("Request failled : Bad Parameters where sent", http.StatusInternalServerError)
