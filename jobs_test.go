@@ -114,3 +114,23 @@ func TestCreateJob_DatabaseError(t *testing.T) {
 	assert.Equal(t, DatabaseError, &body)
 	assert.Equal(t, http.StatusInternalServerError, res.Code)
 }
+
+//-----Test Read Job-----//
+//@todo create job and get id
+
+//@todo read job
+
+//-----Test Update Job-----//
+//@todo create job and get id
+
+//@todo read job
+
+//@todo update job
+
+//@todo compare
+//-----Test Delete Job-----//
+//@todo create job and get id
+
+//@todo delete job
+
+//@todo fail to retreive job
