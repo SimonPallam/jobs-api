@@ -13,3 +13,7 @@ func Err(message string, status int) *Error {
 
 var DatabaseError = Err("Request failled : Database Error", http.StatusInternalServerError)
 var BadParramError = Err("Request failled : Bad Parameters where sent", http.StatusInternalServerError)
+var JobNotFoundError = Err("Request failled : No job was found", http.StatusNotFound)
+
+//@todo create proper Response class or subclass
+var JobDeletedResponse = Err("Job deleted", http.StatusOK)

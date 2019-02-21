@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/azbshiri/common/test"
 	"github.com/go-pg/pg"
 	"github.com/go-pg/pg/orm"
@@ -34,7 +35,7 @@ func TestMain(m *testing.M) {
 		mux.NewRouter(),
 	)
 
-	//temporaryy table for test isolation
+	//temporary table for test isolation
 	testServer.db.CreateTable(&job{}, &orm.CreateTableOptions{
 		Temp: true,
 	})
@@ -115,21 +116,81 @@ func TestCreateJob_DatabaseError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, res.Code)
 }
 
-//-----Test Read Job-----//
-//@todo create job and get id
+//-----Test Commons-----//
+func HelperCreateJob() (job, error) {
+	var _job job
 
-//@todo read job
+	byt, err := ffjson.Marshal(&job{Name: "Developper"})
+	if err != nil {
+		return _job, err
+	}
+	rdr := bytes.NewReader(byt)
+	res, err := test.DoRequest(testServer, "POST", JobPath, rdr)
+	ffjson.NewDecoder().DecodeReader(res.Body, &_job)
+	return _job, err
+}
+
+func HelperClearTable() error {
+	err := testServer.db.DropTable((*job)(nil), &orm.DropTableOptions{
+		IfExists: true,
+		Cascade:  true,
+	})
+	if err != nil {
+		return err
+	}
+
+	err = testServer.db.CreateTable((*job)(nil), nil)
+	return err
+}
+
+//-----Test Read Job-----//
+func TestReadJob(t *testing.T) {
+	_job, err := HelperCreateJob()
+	var body job
+	assert.NoError(t, err)
+
+	res, err := test.DoRequest(testServer, "GET", JobPath+`/`+fmt.Sprint(_job.ID), nil)
+
+	ffjson.NewDecoder().DecodeReader(res.Body, &body)
+	assert.NoError(t, err)
+	assert.Equal(t, &body, _job)
+	assert.Equal(t, http.StatusOK, res.Code)
+}
+
+func TestReadJob_NotFound(t *testing.T) {
+	var body Error
+	err := HelperClearTable()
+	assert.NoError(t, err)
+
+	res, err := test.DoRequest(testServer, "GET", JobPath+"/1", nil)
+
+	ffjson.NewDecoder().DecodeReader(res.Body, &body)
+	assert.NoError(t, err)
+	assert.Equal(t, JobNotFoundError, &body)
+	assert.Equal(t, http.StatusNotFound, res.Code)
+}
 
 //-----Test Update Job-----//
-//@todo create job and get id
-
 //@todo read job
 
 //@todo update job
 
 //@todo compare
 //-----Test Delete Job-----//
-//@todo create job and get id
+func TestDeleteJob(t *testing.T) {
+	var body Error //See tdo in error class for refactor
+	job, err := HelperCreateJob()
+	assert.NoError(t, err)
+
+	payload := []byte(`{"id":` + fmt.Sprint(job.ID) + `}`)
+	res, _ := test.DoRequest(testServer, "DELETE", JobPath, bytes.NewReader(payload))
+
+	ffjson.NewDecoder().DecodeReader(res.Body, &body)
+	assert.NoError(t, err)
+	assert.Equal(t, "Job Deleted", body.Message)
+	assert.Equal(t, http.StatusOK, res.Code)
+
+}
 
 //@todo delete job
 
