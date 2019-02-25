@@ -8,9 +8,10 @@ import (
 
 func CreateJobListFactory(db *pg.DB, length int) (*[]job, error) {
 	jobs := make([]job, length)
-	for _, job := range jobs {
-		job.Name = RandStringRunes(8)
-		job.CreatedAt = time.Now()
+	for key, _ := range jobs {
+		jobs[key].Name = RandStringRunes(8)
+		//_time := time.Now().UTC().Format(time.RFC3339)
+		//jobs[key].created_at = _time
 	}
 
 	err := db.Insert(&jobs)

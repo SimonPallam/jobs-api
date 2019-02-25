@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 		mux.NewRouter(),
 	)
 
-	//temporary table for test isolation
+	// Temporary table for test isolation
 	testServer.db.CreateTable(&job{}, &orm.CreateTableOptions{
 		Temp: true,
 	})
@@ -43,7 +43,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-//-----Test List Jobs-----//
+// Test List Jobs
 func TestListJobs_emptyResponse(t *testing.T) {
 	var body []job
 	res, err := test.DoRequest(testServer, "GET", JobPath, nil)
@@ -78,18 +78,18 @@ func TestListJobs_DatabaseError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, res.Code)
 }
 
-//-----Test Create Jobs-----//
+// Test Create Job
 
 func TestCreateJob(t *testing.T) {
 	var body job
-	byt, err := ffjson.Marshal(&job{Name: "Developper"})
+	byt, err := ffjson.Marshal(&job{Name: "Developer"})
 	rdr := bytes.NewReader(byt)
 
 	res, err := test.DoRequest(testServer, "POST", JobPath, rdr)
 
 	ffjson.NewDecoder().DecodeReader(res.Body, &body)
 	assert.NoError(t, err)
-	assert.Equal(t, "Developper", body.Name)
+	assert.Equal(t, "Developer", body.Name)
 	assert.Equal(t, http.StatusOK, res.Code)
 }
 
@@ -99,13 +99,13 @@ func TestCreateJob_BadParamError(t *testing.T) {
 
 	ffjson.NewDecoder().DecodeReader(res.Body, &body)
 	assert.NoError(t, err)
-	assert.Equal(t, BadParramError, &body)
+	assert.Equal(t, BadParamError, &body)
 	assert.Equal(t, http.StatusBadRequest, res.Code)
 }
 
 func TestCreateJob_DatabaseError(t *testing.T) {
 	var body Error
-	byt, err := ffjson.Marshal(&job{Name: "bad developper"})
+	byt, err := ffjson.Marshal(&job{Name: "bad developer"})
 	rdr := bytes.NewReader(byt)
 
 	res, err := test.DoRequest(badServer, "POST", JobPath, rdr)
@@ -116,11 +116,11 @@ func TestCreateJob_DatabaseError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, res.Code)
 }
 
-//-----Test Commons-----//
+// Test Commons
 func HelperCreateJob() (job, error) {
 	var _job job
 
-	byt, err := ffjson.Marshal(&job{Name: "Developper"})
+	byt, err := ffjson.Marshal(&job{Name: "Developer"})
 	if err != nil {
 		return _job, err
 	}
@@ -131,29 +131,34 @@ func HelperCreateJob() (job, error) {
 }
 
 func HelperClearTable() error {
-	err := testServer.db.DropTable((*job)(nil), &orm.DropTableOptions{
+	err := testServer.db.DropTable(&job{}, &orm.DropTableOptions{
 		IfExists: true,
 		Cascade:  true,
 	})
 	if err != nil {
 		return err
 	}
-
-	err = testServer.db.CreateTable((*job)(nil), nil)
+	err = testServer.db.CreateTable(&job{}, &orm.CreateTableOptions{
+		Temp: true,
+	})
+	//err = testServer.db.CreateTable((*job)(nil), nil)
 	return err
 }
 
-//-----Test Read Job-----//
+// Test Read Job
+
 func TestReadJob(t *testing.T) {
 	_job, err := HelperCreateJob()
+
 	var body job
 	assert.NoError(t, err)
 
 	res, err := test.DoRequest(testServer, "GET", JobPath+`/`+fmt.Sprint(_job.ID), nil)
 
 	ffjson.NewDecoder().DecodeReader(res.Body, &body)
+	fmt.Println(res.Body)
 	assert.NoError(t, err)
-	assert.Equal(t, &body, _job)
+	assert.Equal(t, _job, body)
 	assert.Equal(t, http.StatusOK, res.Code)
 }
 
@@ -170,13 +175,13 @@ func TestReadJob_NotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, res.Code)
 }
 
-//-----Test Update Job-----//
-//@todo read job
+// Test Update Job
+// @todo read job
 
-//@todo update job
+// @todo update job
 
-//@todo compare
-//-----Test Delete Job-----//
+// @todo compare
+// Test Delete Job
 func TestDeleteJob(t *testing.T) {
 	var body Error //See tdo in error class for refactor
 	job, err := HelperCreateJob()
@@ -192,6 +197,6 @@ func TestDeleteJob(t *testing.T) {
 
 }
 
-//@todo delete job
+// @todo delete job
 
-//@todo fail to retreive job
+// @todo fail to retreive job
