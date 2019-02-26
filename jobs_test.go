@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/azbshiri/common/test"
 	"github.com/go-pg/pg"
@@ -46,9 +47,10 @@ func TestMain(m *testing.M) {
 // Test List Jobs
 func TestListJobs_emptyResponse(t *testing.T) {
 	var body []job
-	res, err := test.DoRequest(testServer, "GET", JobPath, nil)
 
+	res, err := test.DoRequest(testServer, "GET", JobPath, nil)
 	ffjson.NewDecoder().DecodeReader(res.Body, &body)
+
 	assert.NoError(t, err)
 	assert.Len(t, body, 0)
 	assert.Equal(t, res.Code, http.StatusOK)
@@ -56,6 +58,7 @@ func TestListJobs_emptyResponse(t *testing.T) {
 
 func TestListJobs_NormalResponse(t *testing.T) {
 	var body []job
+
 	jobs, err := CreateJobListFactory(testServer.db, 10)
 	assert.NoError(t, err)
 
@@ -64,30 +67,32 @@ func TestListJobs_NormalResponse(t *testing.T) {
 	assert.NoError(t, err)
 
 	ffjson.NewDecoder().DecodeReader(res.Body, &body)
+
 	assert.Len(t, body, 10)
 	assert.Equal(t, jobs, &body)
 }
 
 func TestListJobs_DatabaseError(t *testing.T) {
 	var body Error
-	res, err := test.DoRequest(badServer, "GET", JobPath, nil)
 
+	res, err := test.DoRequest(badServer, "GET", JobPath, nil)
 	ffjson.NewDecoder().DecodeReader(res.Body, &body)
+
 	assert.NoError(t, err)
 	assert.Equal(t, DatabaseError, &body)
 	assert.Equal(t, http.StatusInternalServerError, res.Code)
 }
 
 // Test Create Job
-
 func TestCreateJob(t *testing.T) {
 	var body job
+
 	byt, err := ffjson.Marshal(&job{Name: "Developer"})
 	rdr := bytes.NewReader(byt)
 
 	res, err := test.DoRequest(testServer, "POST", JobPath, rdr)
-
 	ffjson.NewDecoder().DecodeReader(res.Body, &body)
+
 	assert.NoError(t, err)
 	assert.Equal(t, "Developer", body.Name)
 	assert.Equal(t, http.StatusOK, res.Code)
@@ -95,9 +100,10 @@ func TestCreateJob(t *testing.T) {
 
 func TestCreateJob_BadParamError(t *testing.T) {
 	var body Error
-	res, err := test.DoRequest(testServer, "POST", JobPath, bytes.NewReader([]byte{}))
 
+	res, err := test.DoRequest(testServer, "POST", JobPath, bytes.NewReader([]byte{}))
 	ffjson.NewDecoder().DecodeReader(res.Body, &body)
+
 	assert.NoError(t, err)
 	assert.Equal(t, BadParamError, &body)
 	assert.Equal(t, http.StatusBadRequest, res.Code)
@@ -105,12 +111,13 @@ func TestCreateJob_BadParamError(t *testing.T) {
 
 func TestCreateJob_DatabaseError(t *testing.T) {
 	var body Error
+
 	byt, err := ffjson.Marshal(&job{Name: "bad developer"})
 	rdr := bytes.NewReader(byt)
 
 	res, err := test.DoRequest(badServer, "POST", JobPath, rdr)
-
 	ffjson.NewDecoder().DecodeReader(res.Body, &body)
+
 	assert.NoError(t, err)
 	assert.Equal(t, DatabaseError, &body)
 	assert.Equal(t, http.StatusInternalServerError, res.Code)
@@ -141,12 +148,11 @@ func HelperClearTable() error {
 	err = testServer.db.CreateTable(&job{}, &orm.CreateTableOptions{
 		Temp: true,
 	})
-	//err = testServer.db.CreateTable((*job)(nil), nil)
+
 	return err
 }
 
 // Test Read Job
-
 func TestReadJob(t *testing.T) {
 	_job, err := HelperCreateJob()
 
@@ -154,9 +160,9 @@ func TestReadJob(t *testing.T) {
 	assert.NoError(t, err)
 
 	res, err := test.DoRequest(testServer, "GET", JobPath+`/`+fmt.Sprint(_job.ID), nil)
-
 	ffjson.NewDecoder().DecodeReader(res.Body, &body)
-	fmt.Println(res.Body)
+
+	debug("the body of the response is %v", res.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, _job, body)
 	assert.Equal(t, http.StatusOK, res.Code)
@@ -164,39 +170,69 @@ func TestReadJob(t *testing.T) {
 
 func TestReadJob_NotFound(t *testing.T) {
 	var body Error
+
 	err := HelperClearTable()
 	assert.NoError(t, err)
 
 	res, err := test.DoRequest(testServer, "GET", JobPath+"/1", nil)
-
 	ffjson.NewDecoder().DecodeReader(res.Body, &body)
+
 	assert.NoError(t, err)
 	assert.Equal(t, JobNotFoundError, &body)
 	assert.Equal(t, http.StatusNotFound, res.Code)
 }
 
 // Test Update Job
-// @todo read job
+func TestUpdateJob(t *testing.T) {
+	_job, err := HelperCreateJob()
 
-// @todo update job
+	type Request struct {
+		Name string `json:"name"`
+	}
 
-// @todo compare
+	request := Request{"changed_name"}
+	byt, err := json.Marshal(&request)
+	rdr := bytes.NewReader(byt)
+
+	var body2 job
+	res, err := test.DoRequest(testServer, "PATCH", JobPath+`/`+fmt.Sprint(_job.ID), rdr)
+	ffjson.NewDecoder().DecodeReader(res.Body, &body2)
+
+	debug("the updated job is %v", body2)
+	assert.NoError(t, err)
+	assert.Equal(t, "changed_name", body2.Name)
+	assert.Equal(t, http.StatusOK, res.Code)
+}
+
 // Test Delete Job
 func TestDeleteJob(t *testing.T) {
-	var body Error //See tdo in error class for refactor
+	job, err := HelperCreateJob()
+	debug("An error occurred in Helper CreateJob %v", err)
+	assert.NoError(t, err)
+
+	res, _ := test.DoRequest(testServer, "DELETE", JobPath+"/"+fmt.Sprint(job.ID), nil)
+	assert.Equal(t, http.StatusOK, res.Code)
+}
+
+func TestDeleteJob_Idempotent(t *testing.T) {
+	job, err := HelperCreateJob()
+	debug("An error occurred in Helper CreateJob %v", err)
+	assert.NoError(t, err)
+
+	test.DoRequest(testServer, "DELETE", JobPath+"/"+fmt.Sprint(job.ID), nil)
+	res, _ := test.DoRequest(testServer, "DELETE", JobPath+"/"+fmt.Sprint(job.ID), nil)
+	assert.Equal(t, http.StatusNotFound, res.Code)
+}
+
+func TestDeleteJob_BadDatabase(t *testing.T) {
 	job, err := HelperCreateJob()
 	assert.NoError(t, err)
 
-	payload := []byte(`{"id":` + fmt.Sprint(job.ID) + `}`)
-	res, _ := test.DoRequest(testServer, "DELETE", JobPath, bytes.NewReader(payload))
-
-	ffjson.NewDecoder().DecodeReader(res.Body, &body)
-	assert.NoError(t, err)
-	assert.Equal(t, "Job Deleted", body.Message)
-	assert.Equal(t, http.StatusOK, res.Code)
-
+	res, _ := test.DoRequest(badServer, "DELETE", JobPath+"/"+fmt.Sprint(job.ID), nil)
+	assert.Equal(t, http.StatusInternalServerError, res.Code)
 }
 
-// @todo delete job
-
-// @todo fail to retreive job
+func TestDeleteJob_BadParam(t *testing.T) {
+	res, _ := test.DoRequest(badServer, "DELETE", JobPath+"/bad_param", nil)
+	assert.Equal(t, http.StatusBadRequest, res.Code)
+}

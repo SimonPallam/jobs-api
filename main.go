@@ -16,5 +16,4 @@ func main() {
 	mux := mux.NewRouter()
 	server := newServer(db, mux)
 	http.ListenAndServe(":8080", server)
-
 }
